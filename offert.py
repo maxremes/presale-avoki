@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import re
 from itertools import groupby
-from streamlit_pills import pills  # Importera streamlit_pills
 
 # --- Initiera session state variabler ---
 if 'show_discount' not in st.session_state:
@@ -255,53 +254,39 @@ with st.expander("Nätverk som tjänst", expanded=True):
 
         if kategori == 'Lokal Brandvägg - Månadskostnad':
             # Hantera denna kategori separat
-            inkludera_options = ['Nej', 'Ja']
-            selected_option = pills(
-                label=f"Inkludera Lokal brandvägg 1000 Mbit/s med UTP?",
-                options=inkludera_options,
-                key=f"{kategori}_Lokal_brandvagg",
-                label_visibility='visible',
-                clearable=False
-            )
-            inkludera = selected_option if selected_option else 'Nej'
-
-            if inkludera == 'Ja':
-                hantera_offertdel(kategori, delar[0], huvudkategori, inkludera)
-                # Hantera de två extra optionerna
-                for offertdel in delar[1:]:
-                    selected_option = pills(
-                        label=f"Inkludera {offertdel['Beskrivning']}?",
-                        options=['Nej', 'Ja'],
-                        key=f"{kategori}_{offertdel['Beskrivning']}",
-                        label_visibility='visible',
-                        clearable=False
-                    )
-                    inkludera = selected_option if selected_option else 'Nej'
+            brandvagg_included = False
+            for offertdel in delar:
+                if offertdel['Beskrivning'] == 'Lokal brandvägg 1000 Mbit/s med UTP':
+                    inkludera = st.radio(f"Inkludera {offertdel['Beskrivning']}?",
+                                         ('Nej', 'Ja'),
+                                         index=0,
+                                         key=f"{kategori}_{offertdel['Beskrivning']}")
                     if inkludera == 'Ja':
+                        brandvagg_included = True
                         hantera_offertdel(kategori, offertdel, huvudkategori, inkludera)
+                    else:
+                        brandvagg_included = False
+                    break  # Avbryt loopen efter att ha hanterat denna offertdel
+
+            if brandvagg_included:
+                # Hantera de två extra optionerna
+                for offertdel in delar:
+                    if offertdel['Beskrivning'] in ['Unified Threat Protection', 'SSL VPN']:
+                        inkludera = st.radio(f"Inkludera {offertdel['Beskrivning']}?",
+                                             ('Nej', 'Ja'),
+                                             index=0,
+                                             key=f"{kategori}_{offertdel['Beskrivning']}")
+                        if inkludera == 'Ja':
+                            hantera_offertdel(kategori, offertdel, huvudkategori, inkludera)
             else:
                 pass  # Gör inget
 
         elif kategori == 'UPS som tjänst - Månadskostnad':
             # Hantera UPS-valet
-            selected_option = pills(
-                label="Vill du inkludera UPS?",
-                options=['Nej', 'Ja'],
-                key='include_ups',
-                label_visibility='visible',
-                clearable=False
-            )
-            inkludera = selected_option if selected_option else 'Nej'
-
-            if inkludera == 'Ja':
+            ups_included = st.radio("Vill du inkludera UPS?", ('Nej', 'Ja'), index=0, key='include_ups')
+            if ups_included == 'Ja':
                 # Välj mellan 1kVa och 3kVa
-                ups_variant = pills(
-                    label="Välj UPS-variant",
-                    options=['UPS 1kVa', 'UPS 3kVa'],
-                    key='ups_variant',
-                    label_visibility='visible',
-                    clearable=False
-                )
+                ups_variant = st.selectbox("Välj UPS-variant", ('UPS 1kVa', 'UPS 3kVa'), key='ups_variant')
                 # Hämta offertdelen för vald variant
                 for offertdel in delar:
                     if offertdel['Beskrivning'] == ups_variant:
@@ -311,24 +296,12 @@ with st.expander("Nätverk som tjänst", expanded=True):
 
         elif kategori == 'WiFi som tjänst - Månadskostnad':
             # Hantera WiFi-valet
-            selected_option = pills(
-                label="Vill du inkludera WiFi som tjänst?",
-                options=['Nej', 'Ja'],
-                key='include_wifi',
-                label_visibility='visible',
-                clearable=False
-            )
-            inkludera = selected_option if selected_option else 'Nej'
-
-            if inkludera == 'Ja':
+            wifi_included = st.radio("Vill du inkludera WiFi som tjänst?", ('Nej', 'Ja'), index=0, key='include_wifi')
+            if wifi_included == 'Ja':
                 # Välj mellan Basic, Premium och Outdoor WiFi
-                wifi_variant = pills(
-                    label="Välj WiFi-variant",
-                    options=['Basic Wi-Fi', 'Premium Wi-Fi 802.11ax', 'Outdoor Wi-Fi'],
-                    key='wifi_variant',
-                    label_visibility='visible',
-                    clearable=False
-                )
+                wifi_variant = st.selectbox("Välj WiFi-variant",
+                                           ('Basic Wi-Fi', 'Premium Wi-Fi 802.11ax', 'Outdoor Wi-Fi'),
+                                           key='wifi_variant')
                 # Hämta offertdelen för vald variant
                 for offertdel in delar:
                     if offertdel['Beskrivning'] == wifi_variant:
@@ -338,24 +311,12 @@ with st.expander("Nätverk som tjänst", expanded=True):
 
         elif kategori == 'Switchar som tjänst - Månadskostnad':
             # Hantera Switchar-valet
-            selected_option = pills(
-                label="Vill du inkludera Switchar som tjänst?",
-                options=['Nej', 'Ja'],
-                key='include_switch',
-                label_visibility='visible',
-                clearable=False
-            )
-            inkludera = selected_option if selected_option else 'Nej'
-
-            if inkludera == 'Ja':
+            switch_included = st.radio("Vill du inkludera Switchar som tjänst?", ('Nej', 'Ja'), index=0, key='include_switch')
+            if switch_included == 'Ja':
                 # Välj mellan de olika switchar-varianterna
-                switch_variant = pills(
-                    label="Välj Switch-variant",
-                    options=['Access switch 24-portar PoE+', 'Access switch 24-portar', 'Access switch 48-portar PoE+'],
-                    key='switch_variant',
-                    label_visibility='visible',
-                    clearable=False
-                )
+                switch_variant = st.selectbox("Välj Switch-variant",
+                                             ('Access switch 24-portar PoE+', 'Access switch 24-portar', 'Access switch 48-portar PoE+'),
+                                             key='switch_variant')
                 # Hämta offertdelen för vald variant
                 for offertdel in delar:
                     if offertdel['Beskrivning'] == switch_variant:
@@ -366,14 +327,10 @@ with st.expander("Nätverk som tjänst", expanded=True):
         else:
             # Hantera övriga kategorier
             for offertdel in delar:
-                selected_option = pills(
-                    label=f"Inkludera {offertdel['Beskrivning']}?",
-                    options=['Nej', 'Ja'],
-                    key=f"{kategori}_{offertdel['Beskrivning']}",
-                    label_visibility='visible',
-                    clearable=False
-                )
-                inkludera = selected_option if selected_option else 'Nej'
+                inkludera = st.radio(f"Inkludera {offertdel['Beskrivning']}?",
+                                     ('Nej', 'Ja'),
+                                     index=0,
+                                     key=f"{kategori}_{offertdel['Beskrivning']}")
                 if inkludera == 'Ja':
                     hantera_offertdel(kategori, offertdel, huvudkategori, inkludera)
 
@@ -383,14 +340,10 @@ with st.expander("Hosting", expanded=True):
     for kategori, delar in offertdelar['Hosting'].items():
         st.subheader(kategori)
         for offertdel in delar:
-            selected_option = pills(
-                label=f"Inkludera {offertdel['Beskrivning']}?",
-                options=['Nej', 'Ja'],
-                key=f"{kategori}_{offertdel['Beskrivning']}",
-                label_visibility='visible',
-                clearable=False
-            )
-            inkludera = selected_option if selected_option else 'Nej'
+            inkludera = st.radio(f"Inkludera {offertdel['Beskrivning']}?",
+                                 ('Nej', 'Ja'),
+                                 index=0,
+                                 key=f"{kategori}_{offertdel['Beskrivning']}")
             if inkludera == 'Ja':
                 hantera_offertdel(kategori, offertdel, huvudkategori, inkludera, prefix='Hosting_')
 
@@ -400,14 +353,10 @@ with st.expander("X-One", expanded=True):
     for kategori, delar in offertdelar['X-One'].items():
         st.subheader(kategori)
         for offertdel in delar:
-            selected_option = pills(
-                label=f"Inkludera {offertdel['Beskrivning']}?",
-                options=['Nej', 'Ja'],
-                key=f"{kategori}_{offertdel['Beskrivning']}",
-                label_visibility='visible',
-                clearable=False
-            )
-            inkludera = selected_option if selected_option else 'Nej'
+            inkludera = st.radio(f"Inkludera {offertdel['Beskrivning']}?",
+                                 ('Nej', 'Ja'),
+                                 index=0,
+                                 key=f"{kategori}_{offertdel['Beskrivning']}")
             if inkludera == 'Ja':
                 hantera_offertdel(kategori, offertdel, huvudkategori, inkludera, prefix='X-One_')
 
@@ -609,7 +558,7 @@ with st.sidebar:
                 except ValueError:
                     pass
                 typ = item['Typ']
-            # Efter items, lägg till summa
+            # Efter items, lägg till sumrad
             if typ == 'Månadskostnad':
                 sum_label = 'Summa per månad'
             else:
