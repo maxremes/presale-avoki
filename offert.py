@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 from itertools import groupby
+from streamlit_pills import pills  # Importera streamlit_pills
 
 # --- Initiera session state variabler ---
 if 'show_discount' not in st.session_state:
@@ -112,26 +113,14 @@ offertdelar = {
     },
     'X-One': {
         'X-One 365 Cloud Security - Månadskostnad': [
-            {'Beskrivning': 'Tier 1 (1 - 4 användare)', 'Pris': 630, 'Antal': 0},
-            {'Beskrivning': 'Tier 2 (5 - 9 användare)', 'Pris': 954, 'Antal': 0},
-            {'Beskrivning': 'Tier 3 (10 - 19 användare)', 'Pris': 1194, 'Antal': 0},
-            {'Beskrivning': 'Tier 4 (20 - 49 användare)', 'Pris': 2154, 'Antal': 0},
-            {'Beskrivning': 'Tier 5 (50 - 99 användare)', 'Pris': 2994, 'Antal': 0},
-            {'Beskrivning': 'Tier 6 (100 - 249 användare)', 'Pris': 4194, 'Antal': 0},
-            {'Beskrivning': 'Tier 7 (250 - n användare)', 'Pris': 'Separat offert', 'Antal': 0}
+            # Tier-alternativ tas bort
         ],
         'X-One 365 Cloud Security - Engångskostnad': [
             {'Beskrivning': 'Driftsättning X-One Tier 1-4', 'Pris': 2995, 'Antal': 0},
             {'Beskrivning': 'Driftsättning X-One Tier 5-7', 'Pris': 4995, 'Antal': 0}
         ],
         'X-One 365 Endpoint Security - Månadskostnad': [
-            {'Beskrivning': 'Tier 1 (1 - 4 brevlådor)', 'Pris': 630, 'Antal': 0},
-            {'Beskrivning': 'Tier 2 (5 - 9 brevlådor)', 'Pris': 954, 'Antal': 0},
-            {'Beskrivning': 'Tier 3 (10 - 19 brevlådor)', 'Pris': 1194, 'Antal': 0},
-            {'Beskrivning': 'Tier 4 (20 - 49 brevlådor)', 'Pris': 2154, 'Antal': 0},
-            {'Beskrivning': 'Tier 5 (50 - 99 brevlådor)', 'Pris': 2994, 'Antal': 0},
-            {'Beskrivning': 'Tier 6 (100 - 249 brevlådor)', 'Pris': 4194, 'Antal': 0},
-            {'Beskrivning': 'Tier 7 (250 - n brevlådor)', 'Pris': '-', 'Antal': 0}
+            # Tier-alternativ tas bort
         ],
         'X-One 365 Endpoint Security - Engångskostnad': [
             {'Beskrivning': 'Driftsättning X-One Tier 1-4', 'Pris': 2995, 'Antal': 0},
@@ -151,6 +140,17 @@ any_discount = False  # Variabel för att kontrollera om rabatter har satts
 # --- Totalsummor för månadskostnad och engångskostnad ---
 total_manadskostnad = 0
 total_engangskostnad = 0
+
+# --- Prislista och Tier-definitioner ---
+tiers = [
+    {'Beskrivning': 'Tier 1 (1 - 4 användare)', 'Pris': 630},
+    {'Beskrivning': 'Tier 2 (5 - 9 användare)', 'Pris': 1045},
+    {'Beskrivning': 'Tier 3 (10 - 19 användare)', 'Pris': 1385},
+    {'Beskrivning': 'Tier 4 (20 - 49 användare)', 'Pris': 2495},
+    {'Beskrivning': 'Tier 5 (50 - 99 användare)', 'Pris': 3495},
+    {'Beskrivning': 'Tier 6 (100 - 249 användare)', 'Pris': 4995},
+    {'Beskrivning': 'Tier 7 (250+ användare)', 'Pris': 'Separat offert'},
+]
 
 # --- Funktion för att hantera offertdelar ---
 def hantera_offertdel(kategori, offertdel, huvudkategori, inkludera, prefix=''):
@@ -203,11 +203,20 @@ def hantera_offertdel(kategori, offertdel, huvudkategori, inkludera, prefix=''):
     # Beräkna pris med rabatt
     original_pris = offertdel['Pris']
     try:
-        rabatterat_pris = float(original_pris) * (1 - rabatt_procent / 100)
-        tot_pris = rabatterat_pris * antal
-        original_pris_formatted = f"{original_pris:,.2f} kr".replace(',', ' ')
-        rabatterat_pris_formatted = f"{rabatterat_pris:,.2f} kr".replace(',', ' ')
-        tot_pris_formatted = f"{tot_pris:,.2f} kr".replace(',', ' ')
+        if isinstance(original_pris, (int, float)):
+            rabatterat_pris = float(original_pris) * (1 - rabatt_procent / 100)
+            tot_pris = rabatterat_pris * antal
+            original_pris_formatted = f"{original_pris:,.2f} kr".replace(',', ' ')
+            rabatterat_pris_formatted = f"{rabatterat_pris:,.2f} kr".replace(',', ' ')
+            tot_pris_formatted = f"{tot_pris:,.2f} kr".replace(',', ' ')
+        else:
+            # Hantera fall där priset är en sträng, t.ex. "Separat offert"
+            rabatterat_pris = original_pris
+            tot_pris = original_pris
+            original_pris_formatted = original_pris
+            rabatterat_pris_formatted = original_pris
+            tot_pris_formatted = original_pris
+            antal = 0  # Sätt antal till 0 eftersom priset inte är numeriskt
     except (ValueError, TypeError):
         original_pris_formatted = original_pris
         rabatterat_pris_formatted = original_pris
@@ -246,6 +255,26 @@ def hantera_offertdel(kategori, offertdel, huvudkategori, inkludera, prefix=''):
             any_discount = True
         total_valda_delar.append(item)
 
+# --- Funktion för att bestämma Tier baserat på antal användare ---
+def bestäm_tier_xone(antal_användare):
+    for idx, tier in enumerate(tiers, start=1):
+        if idx == 1 and 1 <= antal_användare <= 4:
+            return tier['Beskrivning'], tier['Pris']
+        elif idx == 2 and 5 <= antal_användare <= 9:
+            return tier['Beskrivning'], tier['Pris']
+        elif idx == 3 and 10 <= antal_användare <= 19:
+            return tier['Beskrivning'], tier['Pris']
+        elif idx == 4 and 20 <= antal_användare <= 49:
+            return tier['Beskrivning'], tier['Pris']
+        elif idx == 5 and 50 <= antal_användare <= 99:
+            return tier['Beskrivning'], tier['Pris']
+        elif idx == 6 and 100 <= antal_användare <= 249:
+            return tier['Beskrivning'], tier['Pris']
+        elif idx == 7 and antal_användare >= 250:
+            return tier['Beskrivning'], tier['Pris']
+    # Default return if no tier matched
+    return None, None
+
 # --- Hantera Nätverk som tjänst ---
 with st.expander("Nätverk som tjänst", expanded=True):
     huvudkategori = 'Nätverk som tjänst'
@@ -254,39 +283,53 @@ with st.expander("Nätverk som tjänst", expanded=True):
 
         if kategori == 'Lokal Brandvägg - Månadskostnad':
             # Hantera denna kategori separat
-            brandvagg_included = False
-            for offertdel in delar:
-                if offertdel['Beskrivning'] == 'Lokal brandvägg 1000 Mbit/s med UTP':
-                    inkludera = st.radio(f"Inkludera {offertdel['Beskrivning']}?",
-                                         ('Nej', 'Ja'),
-                                         index=0,
-                                         key=f"{kategori}_{offertdel['Beskrivning']}")
-                    if inkludera == 'Ja':
-                        brandvagg_included = True
-                        hantera_offertdel(kategori, offertdel, huvudkategori, inkludera)
-                    else:
-                        brandvagg_included = False
-                    break  # Avbryt loopen efter att ha hanterat denna offertdel
+            inkludera_options = ['Nej', 'Ja']
+            selected_option = pills(
+                label=f"Inkludera Lokal brandvägg 1000 Mbit/s med UTP?",
+                options=inkludera_options,
+                key=f"{kategori}_Lokal_brandvagg",
+                label_visibility='visible',
+                clearable=False
+            )
+            inkludera = selected_option if selected_option else 'Nej'
 
-            if brandvagg_included:
+            if inkludera == 'Ja':
+                hantera_offertdel(kategori, delar[0], huvudkategori, inkludera)
                 # Hantera de två extra optionerna
-                for offertdel in delar:
-                    if offertdel['Beskrivning'] in ['Unified Threat Protection', 'SSL VPN']:
-                        inkludera = st.radio(f"Inkludera {offertdel['Beskrivning']}?",
-                                             ('Nej', 'Ja'),
-                                             index=0,
-                                             key=f"{kategori}_{offertdel['Beskrivning']}")
-                        if inkludera == 'Ja':
-                            hantera_offertdel(kategori, offertdel, huvudkategori, inkludera)
+                for offertdel in delar[1:]:
+                    selected_option = pills(
+                        label=f"Inkludera {offertdel['Beskrivning']}?",
+                        options=['Nej', 'Ja'],
+                        key=f"{kategori}_{offertdel['Beskrivning']}",
+                        label_visibility='visible',
+                        clearable=False
+                    )
+                    inkludera = selected_option if selected_option else 'Nej'
+                    if inkludera == 'Ja':
+                        hantera_offertdel(kategori, offertdel, huvudkategori, inkludera)
             else:
                 pass  # Gör inget
 
         elif kategori == 'UPS som tjänst - Månadskostnad':
             # Hantera UPS-valet
-            ups_included = st.radio("Vill du inkludera UPS?", ('Nej', 'Ja'), index=0, key='include_ups')
-            if ups_included == 'Ja':
+            selected_option = pills(
+                label="Vill du inkludera UPS?",
+                options=['Nej', 'Ja'],
+                key='include_ups',
+                label_visibility='visible',
+                clearable=False
+            )
+            inkludera = selected_option if selected_option else 'Nej'
+
+            if inkludera == 'Ja':
                 # Välj mellan 1kVa och 3kVa
-                ups_variant = st.selectbox("Välj UPS-variant", ('UPS 1kVa', 'UPS 3kVa'), key='ups_variant')
+                ups_variant = pills(
+                    label="Välj UPS-variant",
+                    options=['UPS 1kVa', 'UPS 3kVa'],
+                    key='ups_variant',
+                    label_visibility='visible',
+                    clearable=False
+                )
                 # Hämta offertdelen för vald variant
                 for offertdel in delar:
                     if offertdel['Beskrivning'] == ups_variant:
@@ -296,12 +339,24 @@ with st.expander("Nätverk som tjänst", expanded=True):
 
         elif kategori == 'WiFi som tjänst - Månadskostnad':
             # Hantera WiFi-valet
-            wifi_included = st.radio("Vill du inkludera WiFi som tjänst?", ('Nej', 'Ja'), index=0, key='include_wifi')
-            if wifi_included == 'Ja':
+            selected_option = pills(
+                label="Vill du inkludera WiFi som tjänst?",
+                options=['Nej', 'Ja'],
+                key='include_wifi',
+                label_visibility='visible',
+                clearable=False
+            )
+            inkludera = selected_option if selected_option else 'Nej'
+
+            if inkludera == 'Ja':
                 # Välj mellan Basic, Premium och Outdoor WiFi
-                wifi_variant = st.selectbox("Välj WiFi-variant",
-                                           ('Basic Wi-Fi', 'Premium Wi-Fi 802.11ax', 'Outdoor Wi-Fi'),
-                                           key='wifi_variant')
+                wifi_variant = pills(
+                    label="Välj WiFi-variant",
+                    options=['Basic Wi-Fi', 'Premium Wi-Fi 802.11ax', 'Outdoor Wi-Fi'],
+                    key='wifi_variant',
+                    label_visibility='visible',
+                    clearable=False
+                )
                 # Hämta offertdelen för vald variant
                 for offertdel in delar:
                     if offertdel['Beskrivning'] == wifi_variant:
@@ -311,12 +366,24 @@ with st.expander("Nätverk som tjänst", expanded=True):
 
         elif kategori == 'Switchar som tjänst - Månadskostnad':
             # Hantera Switchar-valet
-            switch_included = st.radio("Vill du inkludera Switchar som tjänst?", ('Nej', 'Ja'), index=0, key='include_switch')
-            if switch_included == 'Ja':
+            selected_option = pills(
+                label="Vill du inkludera Switchar som tjänst?",
+                options=['Nej', 'Ja'],
+                key='include_switch',
+                label_visibility='visible',
+                clearable=False
+            )
+            inkludera = selected_option if selected_option else 'Nej'
+
+            if inkludera == 'Ja':
                 # Välj mellan de olika switchar-varianterna
-                switch_variant = st.selectbox("Välj Switch-variant",
-                                             ('Access switch 24-portar PoE+', 'Access switch 24-portar', 'Access switch 48-portar PoE+'),
-                                             key='switch_variant')
+                switch_variant = pills(
+                    label="Välj Switch-variant",
+                    options=['Access switch 24-portar PoE+', 'Access switch 24-portar', 'Access switch 48-portar PoE+'],
+                    key='switch_variant',
+                    label_visibility='visible',
+                    clearable=False
+                )
                 # Hämta offertdelen för vald variant
                 for offertdel in delar:
                     if offertdel['Beskrivning'] == switch_variant:
@@ -327,10 +394,14 @@ with st.expander("Nätverk som tjänst", expanded=True):
         else:
             # Hantera övriga kategorier
             for offertdel in delar:
-                inkludera = st.radio(f"Inkludera {offertdel['Beskrivning']}?",
-                                     ('Nej', 'Ja'),
-                                     index=0,
-                                     key=f"{kategori}_{offertdel['Beskrivning']}")
+                selected_option = pills(
+                    label=f"Inkludera {offertdel['Beskrivning']}?",
+                    options=['Nej', 'Ja'],
+                    key=f"{kategori}_{offertdel['Beskrivning']}",
+                    label_visibility='visible',
+                    clearable=False
+                )
+                inkludera = selected_option if selected_option else 'Nej'
                 if inkludera == 'Ja':
                     hantera_offertdel(kategori, offertdel, huvudkategori, inkludera)
 
@@ -340,25 +411,106 @@ with st.expander("Hosting", expanded=True):
     for kategori, delar in offertdelar['Hosting'].items():
         st.subheader(kategori)
         for offertdel in delar:
-            inkludera = st.radio(f"Inkludera {offertdel['Beskrivning']}?",
-                                 ('Nej', 'Ja'),
-                                 index=0,
-                                 key=f"{kategori}_{offertdel['Beskrivning']}")
+            selected_option = pills(
+                label=f"Inkludera {offertdel['Beskrivning']}?",
+                options=['Nej', 'Ja'],
+                key=f"{kategori}_{offertdel['Beskrivning']}",
+                label_visibility='visible',
+                clearable=False
+            )
+            inkludera = selected_option if selected_option else 'Nej'
             if inkludera == 'Ja':
                 hantera_offertdel(kategori, offertdel, huvudkategori, inkludera, prefix='Hosting_')
 
 # --- Hantera X-One ---
 with st.expander("X-One", expanded=True):
     huvudkategori = 'X-One'
-    for kategori, delar in offertdelar['X-One'].items():
-        st.subheader(kategori)
-        for offertdel in delar:
-            inkludera = st.radio(f"Inkludera {offertdel['Beskrivning']}?",
-                                 ('Nej', 'Ja'),
-                                 index=0,
-                                 key=f"{kategori}_{offertdel['Beskrivning']}")
-            if inkludera == 'Ja':
-                hantera_offertdel(kategori, offertdel, huvudkategori, inkludera, prefix='X-One_')
+
+    # Hantera X-One 365 Cloud Security - Månadskostnad
+    st.subheader('X-One 365 Cloud Security - Månadskostnad')
+    antal_cloud_security = st.number_input(
+        "Antal användare för X-One 365 Cloud Security",
+        min_value=0,
+        step=1,
+        key='xone_cloud_security_users'
+    )
+    if antal_cloud_security > 0:
+        beskrivning, pris = bestäm_tier_xone(antal_cloud_security)
+        if beskrivning and pris:
+            if isinstance(pris, (int, float)):
+                hantera_offertdel(
+                    kategori='X-One 365 Cloud Security - Månadskostnad',
+                    offertdel={'Beskrivning': beskrivning, 'Pris': pris, 'Antal': antal_cloud_security},
+                    huvudkategori=huvudkategori,
+                    inkludera='Ja',
+                    prefix='X-One_CloudSecurity_'
+                )
+            else:
+                st.warning("För mer än 249 användare, vänligen kontakta oss för en separat offert.")
+
+    # Hantera X-One 365 Endpoint Security - Månadskostnad
+    st.subheader('X-One 365 Endpoint Security - Månadskostnad')
+    antal_endpoint_security = st.number_input(
+        "Antal användare för X-One 365 Endpoint Security",
+        min_value=0,
+        step=1,
+        key='xone_endpoint_security_users'
+    )
+    if antal_endpoint_security > 0:
+        beskrivning, pris = bestäm_tier_xone(antal_endpoint_security)
+        if beskrivning and pris:
+            if isinstance(pris, (int, float)):
+                hantera_offertdel(
+                    kategori='X-One 365 Endpoint Security - Månadskostnad',
+                    offertdel={'Beskrivning': beskrivning, 'Pris': pris, 'Antal': antal_endpoint_security},
+                    huvudkategori=huvudkategori,
+                    inkludera='Ja',
+                    prefix='X-One_EndpointSecurity_'
+                )
+            else:
+                st.warning("För mer än 249 användare, vänligen kontakta oss för en separat offert.")
+
+    # Hantera X-One 365 Cloud Security - Engångskostnad baserat på antal användare
+    st.subheader('X-One 365 Cloud Security - Engångskostnad')
+    if antal_cloud_security > 0:
+        if 1 <= antal_cloud_security <= 4:
+            deployment_option = 'Driftsättning X-One Tier 1-4'
+        elif 5 <= antal_cloud_security <= 249:
+            deployment_option = 'Driftsättning X-One Tier 5-7'
+        else:
+            deployment_option = None
+
+        if deployment_option:
+            for offertdel in offertdelar['X-One']['X-One 365 Cloud Security - Engångskostnad']:
+                if offertdel['Beskrivning'] == deployment_option:
+                    hantera_offertdel(
+                        kategori='X-One 365 Cloud Security - Engångskostnad',
+                        offertdel=offertdel,
+                        huvudkategori=huvudkategori,
+                        inkludera='Ja',
+                        prefix='X-One_CloudSecurity_Engang_'
+                    )
+
+    # Hantera X-One 365 Endpoint Security - Engångskostnad baserat på antal användare
+    st.subheader('X-One 365 Endpoint Security - Engångskostnad')
+    if antal_endpoint_security > 0:
+        if 1 <= antal_endpoint_security <= 4:
+            deployment_option = 'Driftsättning X-One Tier 1-4'
+        elif 5 <= antal_endpoint_security <= 249:
+            deployment_option = 'Driftsättning X-One Tier 5-7'
+        else:
+            deployment_option = None
+
+        if deployment_option:
+            for offertdel in offertdelar['X-One']['X-One 365 Endpoint Security - Engångskostnad']:
+                if offertdel['Beskrivning'] == deployment_option:
+                    hantera_offertdel(
+                        kategori='X-One 365 Endpoint Security - Engångskostnad',
+                        offertdel=offertdel,
+                        huvudkategori=huvudkategori,
+                        inkludera='Ja',
+                        prefix='X-One_EndpointSecurity_Engang_'
+                    )
 
 # --- Hantera Anpassade Offertdelar ---
 with st.expander("Anpassade offertdelar", expanded=True):
@@ -465,14 +617,23 @@ for item in st.session_state['custom_items']:
     kategori_typ = item['Typ']
 
     # Beräkna pris med rabatt
-    rabatterat_pris = original_pris * (1 - rabatt_procent / 100)
-    tot_pris = rabatterat_pris * antal
+    if isinstance(original_pris, (int, float)):
+        rabatterat_pris = original_pris * (1 - rabatt_procent / 100)
+        tot_pris = rabatterat_pris * antal
+        original_pris_formatted = f"{original_pris:,.2f} kr".replace(',', ' ')
+        rabatterat_pris_formatted = f"{rabatterat_pris:,.2f} kr".replace(',', ' ')
+        tot_pris_formatted = f"{tot_pris:,.2f} kr".replace(',', ' ')
+    else:
+        # Hantera fall där priset är en sträng
+        rabatterat_pris = original_pris
+        tot_pris = original_pris
+        original_pris_formatted = original_pris
+        rabatterat_pris_formatted = original_pris
+        tot_pris_formatted = original_pris
+        antal = 0  # Sätt antal till 0 eftersom priset inte är numeriskt
 
-    # Formatera antal och priser
+    # Formatera antal som heltal
     antal_formatted = int(antal)
-    original_pris_formatted = f"{original_pris:,.2f} kr".replace(',', ' ') if isinstance(original_pris, (int, float)) else original_pris
-    rabatterat_pris_formatted = f"{rabatterat_pris:,.2f} kr".replace(',', ' ') if isinstance(rabatterat_pris, (int, float)) else rabatterat_pris
-    tot_pris_formatted = f"{tot_pris:,.2f} kr".replace(',', ' ') if isinstance(tot_pris, (int, float)) else tot_pris
 
     # Kontrollera om antalet är 0 och rabatten inte är 100%
     if antal == 0 and rabatt_procent < 100:
@@ -558,7 +719,7 @@ with st.sidebar:
                 except ValueError:
                     pass
                 typ = item['Typ']
-            # Efter items, lägg till sumrad
+            # Efter items, lägg till summa
             if typ == 'Månadskostnad':
                 sum_label = 'Summa per månad'
             else:
