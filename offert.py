@@ -105,7 +105,15 @@ offertdelar = {
             {'Beskrivning': 'Driftsättning X-One Tier 1-4', 'Pris': 2995},
             {'Beskrivning': 'Driftsättning X-One Tier 5-7', 'Pris': 4995}
         ]
+    },
+    'Microsoft 365 CSP': {
+      'Licenser': [
+            {'Beskrivning': 'Microsoft 365 Business Basic', 'Pris': 50},
+            {'Beskrivning': 'Microsoft 365 Business Standard', 'Pris': 100},
+            {'Beskrivning': 'Microsoft 365 Business Premium', 'Pris': 243.1},
+        ]
     }
+
 }
 
 # --- Licenskrav baserat på Microsoft 365-plan ---
@@ -258,6 +266,48 @@ def hantera_offertdel(kategori, offertdel, huvudkategori,
         }
         total_valda_delar.append(item)
 
+
+def hantera_microsoft_licenser():
+    huvudkategori = 'Microsoft 365 CSP'
+    kategori = 'Licenser'
+    delar = offertdelar[huvudkategori][kategori]
+    
+    st.subheader(huvudkategori)
+    
+    # Skapa en lista med licensbeskrivningar för multiväljaren
+    licens_beskrivningar = [licens['Beskrivning'] for licens in delar]
+    
+    # Visa en sökbar multiväljare
+    valda_licenser = st.multiselect(
+        "Välj Microsoft 365 CSP-licenser",
+        options=licens_beskrivningar,
+        key='valda_microsoft_licenser'
+    )
+    
+    # Hantera valda licenser
+    for licens_namn in valda_licenser:
+        # Hämta licensdetaljer
+        licens = next((lic for lic in delar if lic['Beskrivning'] == licens_namn), None)
+        if licens:
+            # Ange antal för varje vald licens
+            antal = st.number_input(
+                f"Ange antal för {licens_namn}",
+                min_value=1,
+                value=1,
+                step=1,
+                key=f"antal_{licens_namn}"
+            )
+            licens_copy = licens.copy()
+            licens_copy['Antal'] = antal
+            hantera_offertdel(
+                kategori=kategori,
+                offertdel=licens_copy,
+                huvudkategori=huvudkategori,
+                inkludera='Ja',
+                skip_quantity_input=True
+            )
+
+
 # --- Funktion för att bestämma Tier baserat på antal användare ---
 def bestäm_tier_xone(antal_användare):
     for tier in tiers:
@@ -273,6 +323,8 @@ def bestäm_tier_xone(antal_användare):
     return None, None
 
 # --- Hantera Nätverk som tjänst ---
+
+
 with st.expander("Nätverk som tjänst", expanded=True):
     huvudkategori = 'Nätverk som tjänst'
     for kategori, delar in offertdelar['Nätverk som tjänst'].items():
@@ -631,6 +683,10 @@ with st.expander("Nätverk som tjänst", expanded=True):
 with st.expander("X-One", expanded=True):
     huvudkategori = 'X-One'
 
+with st.expander("Microsoft 365 CSP", expanded=True):
+    hantera_microsoft_licenser()
+
+
     # --- Licensval baserat på Microsoft 365-plan ---
     st.subheader("Nuvarande licens")
     selected_m365_plan = st.selectbox(
@@ -787,6 +843,65 @@ with st.expander("X-One", expanded=True):
 
     selected_services = hämta_valda_xone_tjänster()
     lägg_till_licenser(selected_m365_plan, selected_services)
+
+
+
+# --- Hantera Microsoft 365 CSP ---
+def hantera_microsoft_licenser():
+    huvudkategori = 'Microsoft 365 CSP'
+    kategori = 'Licenser'
+    delar = offertdelar[huvudkategori][kategori]
+    
+    st.subheader(huvudkategori)
+    
+    # Skapa en lista med licensbeskrivningar för multiväljaren
+    licens_beskrivningar = [licens['Beskrivning'] for licens in delar]
+    
+    # Visa en sökbar multiväljare
+    valda_licenser = st.multiselect(
+        "Välj Microsoft 365 CSP-licenser",
+        options=licens_beskrivningar,
+        key='valda_microsoft_licenser'
+    )
+    
+    # Hantera valda licenser
+    for licens_namn in valda_licenser:
+        # Hämta licensdetaljer
+        licens = next((lic for lic in delar if lic['Beskrivning'] == licens_namn), None)
+        if licens:
+            cols = st.columns([2, 1])
+            with cols[0]:
+                # Ange antal för varje vald licens
+                antal = st.number_input(
+                    f"Ange antal för {licens_namn}",
+                    min_value=1,
+                    value=1,
+                    step=1,
+                    key=f"antal_{licens_namn}"
+                )
+            with cols[1]:
+                if st.session_state['show_discount']:
+                    rabatt_procent = st.number_input(
+                        "Rabatt (%)",
+                        min_value=0,
+                        max_value=100,
+                        value=0,
+                        key=f"rabatt_{licens_namn}"
+                    )
+                else:
+                    rabatt_procent = 0
+            licens_copy = licens.copy()
+            licens_copy['Antal'] = antal
+            hantera_offertdel(
+                kategori=kategori,
+                offertdel=licens_copy,
+                huvudkategori=huvudkategori,
+                inkludera='Ja',
+                prefix='Microsoft_',
+                skip_quantity_input=True
+            )
+
+
 
 # --- Hantera Anpassade Offertdelar ---
 with st.expander("Anpassade offertdelar", expanded=True):
@@ -1087,7 +1202,7 @@ footer = """
 }
 </style>
 <div class="footer">
-    © 2024 Avoki AB. Alla rättigheter förbehållna.
+    © 2024 Max Remes. Alla rättigheter förbehållna.
 </div>
 """
 
